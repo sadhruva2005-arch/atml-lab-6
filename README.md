@@ -8,6 +8,8 @@
 | T4 | Text Summarization | BART (facebook/bart-large-cnn) |
 
 ---
+<img width="883" height="889" alt="image" src="https://github.com/user-attachments/assets/4eb90882-1571-416f-855b-7298ee8f86b5" />
+
 
 ## Setup & Run
 
