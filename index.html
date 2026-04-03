@@ -3,271 +3,776 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Encoder-Decoder NLP Suite</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <title>Encoder-Decoder NLP Suite — Machine Translation & Summarization</title>
+  <meta name="description" content="LSTM Seq2Seq, MarianMT and BART powered NLP suite for English to Hindi, English to Spanish translation, and abstractive text summarization."/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg:#080c14;--card:#0d1526;--border:#1e3157;--accent:#4f8ef7;--p:#c084fc;--g:#34d399;--text:#e2e8f0;--muted:#64748b;}
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:"Inter",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-    body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(79,142,247,.1) 0%,transparent 60%);pointer-events:none;}
-    .wrap{max-width:860px;margin:0 auto;padding:40px 20px 80px;position:relative;}
+    /* ━━━━━ Design Tokens ━━━━━ */
+    :root {
+      --bg:      #06090f;
+      --bg2:     #0b1120;
+      --card:    #0e1729;
+      --card-hi: #111d35;
+      --border:  #1a2744;
+      --accent:  #4f8ef7;
+      --accent2: #6ba3ff;
+      --purple:  #a578f0;
+      --green:   #34d399;
+      --pink:    #f472b6;
+      --amber:   #fbbf24;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --radius:  14px;
+      --glow-b:  rgba(79,142,247,.12);
+      --glow-p:  rgba(165,120,240,.12);
+      --glow-g:  rgba(52,211,153,.12);
+    }
 
-    /* Header */
-    header{margin-bottom:36px;animation:up .5s ease both;}
-    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--accent);letter-spacing:.15em;text-transform:uppercase;margin-bottom:10px;}
-    h1{font-family:"Syne",sans-serif;font-size:clamp(26px,5vw,42px);font-weight:800;background:linear-gradient(135deg,#e2e8f0,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1;margin-bottom:8px;}
-    header p{font-size:13px;color:var(--muted);line-height:1.7;}
-    .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;}
-    .tag{font-family:"JetBrains Mono",monospace;font-size:10px;padding:3px 9px;border-radius:99px;border:1px solid;}
-    .t-b{color:var(--accent);border-color:rgba(79,142,247,.3);background:rgba(79,142,247,.07);}
-    .t-p{color:var(--p);border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.07);}
-    .t-g{color:var(--g);border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.07);}
+    /* ━━━━━ Reset & Base ━━━━━ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-    /* Status */
-    .status{display:flex;align-items:center;gap:8px;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);margin-bottom:24px;}
-    .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:pulse 2s infinite;}
-    .dot.on{background:var(--g);} .dot.off{background:#f87171;}
+    /* ━━━━━ Background Effects ━━━━━ */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 30% -5%, rgba(79,142,247,.08), transparent),
+        radial-gradient(ellipse 60% 40% at 70% 10%, rgba(165,120,240,.06), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .grid-bg {
+      position: fixed; inset: 0;
+      background-size: 60px 60px;
+      background-image:
+        linear-gradient(rgba(79,142,247,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,247,.03) 1px, transparent 1px);
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 20%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
 
-    /* Tabs */
-    .tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:5px;margin-bottom:24px;overflow-x:auto;animation:up .4s .1s ease both;}
-    .tab{flex:1;min-width:110px;font-family:"Syne",sans-serif;font-size:13px;font-weight:700;padding:9px 12px;border-radius:9px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:all .18s;white-space:nowrap;}
-    .tab:hover{color:var(--text);} .tab.on{background:#111d35;color:var(--text);border:1px solid var(--border);}
+    /* ━━━━━ Layout ━━━━━ */
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 24px 100px;
+      position: relative;
+      z-index: 1;
+    }
 
-    /* Panel */
-    .panel{display:none;animation:up .3s ease both;} .panel.on{display:block;}
-    .task-tag{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;}
-    .panel h2{font-family:"Syne",sans-serif;font-size:20px;font-weight:700;margin-bottom:5px;}
-    .panel>p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.6;}
+    /* ━━━━━ Header ━━━━━ */
+    header {
+      margin-bottom: 40px;
+      animation: slideUp .6s ease both;
+    }
+    .eyebrow {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--accent);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 20px; height: 1px;
+      background: var(--accent);
+    }
+    h1 {
+      font-family: "Syne", sans-serif;
+      font-size: clamp(28px, 5vw, 46px);
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+    header > p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 600px;
+    }
+    .tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+    .tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      padding: 4px 12px;
+      border-radius: 99px;
+      border: 1px solid;
+      transition: transform .18s, box-shadow .18s;
+    }
+    .tag:hover { transform: translateY(-1px); }
+    .t-b { color: var(--accent); border-color: rgba(79,142,247,.25); background: rgba(79,142,247,.06); }
+    .t-b:hover { box-shadow: 0 4px 12px rgba(79,142,247,.15); }
+    .t-p { color: var(--purple); border-color: rgba(165,120,240,.25); background: rgba(165,120,240,.06); }
+    .t-p:hover { box-shadow: 0 4px 12px rgba(165,120,240,.15); }
+    .t-g { color: var(--green); border-color: rgba(52,211,153,.25); background: rgba(52,211,153,.06); }
+    .t-g:hover { box-shadow: 0 4px 12px rgba(52,211,153,.15); }
 
-    /* Card / inputs */
-    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:14px;}
-    label{display:block;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;}
-    textarea,input[type=number]{width:100%;background:#080c14;border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:"Inter",sans-serif;font-size:14px;padding:13px 15px;outline:none;resize:vertical;transition:border-color .18s;}
-    textarea:focus,input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.1);}
-    textarea{min-height:100px;line-height:1.6;}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+    /* ━━━━━ Status Bar ━━━━━ */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      padding: 10px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      animation: slideUp .5s .05s ease both;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background .3s;
+    }
+    .dot.on  { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,.5); animation: pulse 2s infinite; }
+    .dot.off { background: #f87171;      box-shadow: 0 0 8px rgba(248,113,113,.4); }
+    .status-detail { margin-left: auto; font-size: 10px; opacity: .6; }
 
-    /* Button */
-    .btn{display:inline-flex;align-items:center;gap:8px;font-family:"Syne",sans-serif;font-size:14px;font-weight:700;padding:11px 22px;border-radius:9px;border:none;cursor:pointer;color:#fff;transition:all .18s;margin-top:14px;}
-    .btn:hover{transform:translateY(-1px);}  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
-    .b-b{background:var(--accent);}  .b-b:hover{box-shadow:0 5px 20px rgba(79,142,247,.35);}
-    .b-p{background:var(--p);}       .b-p:hover{box-shadow:0 5px 20px rgba(192,132,252,.35);}
-    .b-g{background:var(--g);color:#032c1c;} .b-g:hover{box-shadow:0 5px 20px rgba(52,211,153,.35);}
+    /* ━━━━━ Tabs ━━━━━ */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px;
+      margin-bottom: 28px;
+      overflow-x: auto;
+      animation: slideUp .5s .1s ease both;
+    }
+    .tab {
+      flex: 1;
+      min-width: 120px;
+      font-family: "Syne", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: all .2s;
+      white-space: nowrap;
+      position: relative;
+    }
+    .tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+    .tab.on {
+      background: var(--card-hi);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .tab .tab-icon { margin-right: 6px; font-size: 14px; }
 
-    /* Result */
-    .res{background:#080c14;border:1px solid var(--border);border-radius:9px;padding:16px;margin-top:14px;display:none;}
-    .res.on{display:block;animation:up .25s ease both;}
-    .res-label{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;}
-    .res-text{font-size:17px;font-weight:500;line-height:1.6;}
-    .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
-    .chip{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);background:var(--bg);padding:3px 9px;border-radius:6px;border:1px solid var(--border);}
-    .err{color:#f87171;font-size:12px;margin-top:10px;display:none;}
-    .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;}
+    /* ━━━━━ Panel ━━━━━ */
+    .panel { display: none; animation: slideUp .35s ease both; }
+    .panel.on { display: block; }
+    .task-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 6px;
+    }
+    .task-tag.blue   { color: var(--accent); background: rgba(79,142,247,.08); }
+    .task-tag.purple { color: var(--purple); background: rgba(165,120,240,.08); }
+    .task-tag.green  { color: var(--green);  background: rgba(52,211,153,.08); }
+    .task-tag.amber  { color: var(--amber);  background: rgba(251,191,36,.08); }
 
-    /* Arch */
-    .arch{display:flex;align-items:center;gap:0;overflow-x:auto;padding:8px 0;}
-    .ab{flex-shrink:0;text-align:center;padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:#0d1526;min-width:90px;}
-    .ab.enc{border-color:rgba(79,142,247,.5);background:rgba(79,142,247,.06);}
-    .ab.ctx{border-color:rgba(192,132,252,.5);background:rgba(192,132,252,.06);}
-    .ab.dec{border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.06);}
-    .ab .ico{font-size:20px;margin-bottom:3px;}
-    .ab .lbl{font-family:"Syne",sans-serif;font-size:11px;font-weight:700;}
-    .ab .sub{font-family:"JetBrains Mono",monospace;font-size:9px;color:var(--muted);margin-top:2px;}
-    .arr{flex-shrink:0;width:30px;text-align:center;color:var(--muted);font-size:16px;}
+    .panel h2 {
+      font-family: "Syne", sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .panel > p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 20px;
+      line-height: 1.7;
+    }
+    .panel > p code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(79,142,247,.08);
+      padding: 2px 8px;
+      border-radius: 5px;
+    }
 
-    @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-    @media(max-width:550px){.row{grid-template-columns:1fr}.tabs{flex-direction:column}}
+    /* ━━━━━ Card ━━━━━ */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: border-color .25s, box-shadow .25s;
+    }
+    .card:hover {
+      border-color: rgba(79,142,247,.2);
+      box-shadow: 0 4px 20px rgba(0,0,0,.15);
+    }
+
+    /* ━━━━━ Form Elements ━━━━━ */
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 8px;
+    }
+    textarea, input[type=number] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      font-size: 14px;
+      padding: 14px 16px;
+      outline: none;
+      resize: vertical;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    textarea:focus, input[type=number]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,.1);
+    }
+    textarea {
+      min-height: 110px;
+      line-height: 1.6;
+    }
+    textarea::placeholder { color: rgba(100,116,139,.5); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+
+    /* ━━━━━ Buttons ━━━━━ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: "Syne", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      color: #fff;
+      transition: all .2s;
+      margin-top: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.15), transparent 50%);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .btn:hover::after { opacity: 1; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .btn:disabled::after { display: none; }
+
+    .b-b { background: linear-gradient(135deg, #4f8ef7, #3b6fd4); }
+    .b-b:hover { box-shadow: 0 6px 24px rgba(79,142,247,.4); }
+    .b-p { background: linear-gradient(135deg, #a578f0, #8b5cf6); }
+    .b-p:hover { box-shadow: 0 6px 24px rgba(165,120,240,.4); }
+    .b-g { background: linear-gradient(135deg, #34d399, #10b981); color: #032c1c; }
+    .b-g:hover { box-shadow: 0 6px 24px rgba(52,211,153,.4); }
+
+    /* ━━━━━ Spinner ━━━━━ */
+    .spin {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: none;
+    }
+    .b-g .spin { border-color: rgba(3,44,28,.2); border-top-color: #032c1c; }
+
+    /* ━━━━━ Results ━━━━━ */
+    .res {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+      display: none;
+      position: relative;
+    }
+    .res.on { display: block; animation: slideUp .3s ease both; }
+    .res-label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .res-label.blue   { color: var(--accent); }
+    .res-label.purple { color: var(--purple); }
+    .res-label.green  { color: var(--green); }
+    .res-label::before {
+      content: "";
+      width: 3px; height: 14px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+    .res-text {
+      font-size: 17px;
+      font-weight: 500;
+      line-height: 1.7;
+    }
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .chip {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--card);
+      padding: 4px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      transition: border-color .2s;
+    }
+    .chip:hover { border-color: var(--accent); }
+    .err {
+      color: #f87171;
+      font-size: 12px;
+      margin-top: 10px;
+      display: none;
+      padding: 8px 12px;
+      background: rgba(248,113,113,.06);
+      border: 1px solid rgba(248,113,113,.15);
+      border-radius: 8px;
+    }
+
+    /* ━━━━━ Architecture Panel ━━━━━ */
+    .arch-flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      padding: 12px 0;
+    }
+    .arch-block {
+      flex-shrink: 0;
+      text-align: center;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      min-width: 100px;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .arch-block:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+    .arch-block.enc { border-color: rgba(79,142,247,.4);  background: rgba(79,142,247,.05); }
+    .arch-block.ctx { border-color: rgba(165,120,240,.4); background: rgba(165,120,240,.05); }
+    .arch-block.dec { border-color: rgba(52,211,153,.4);  background: rgba(52,211,153,.05); }
+    .arch-block .icon  { font-size: 22px; margin-bottom: 4px; }
+    .arch-block .label { font-family: "Syne", sans-serif; font-size: 12px; font-weight: 700; }
+    .arch-block .sub   { font-family: "JetBrains Mono", monospace; font-size: 9px; color: var(--muted); margin-top: 4px; }
+    .arrow {
+      flex-shrink: 0;
+      width: 36px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 18px;
+      opacity: .5;
+    }
+
+    /* Model Cards in Architecture */
+    .model-grid { display: grid; gap: 10px; margin-top: 14px; }
+    .model-card {
+      padding: 16px;
+      background: var(--bg);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      transition: border-color .2s, transform .2s;
+    }
+    .model-card:hover { border-color: rgba(79,142,247,.3); transform: translateX(4px); }
+    .model-card strong { font-size: 13px; font-weight: 600; }
+    .model-card p { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+
+    /* ━━━━━ Footer ━━━━━ */
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    /* ━━━━━ Animations ━━━━━ */
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* ━━━━━ Responsive ━━━━━ */
+    @media (max-width: 600px) {
+      .row { grid-template-columns: 1fr; }
+      .tabs { gap: 2px; padding: 4px; }
+      .tab { min-width: 90px; font-size: 12px; padding: 8px 8px; }
+      .wrap { padding: 24px 16px 60px; }
+      .arch-flow { padding-bottom: 8px; }
+    }
   </style>
 </head>
 <body>
+<div class="grid-bg"></div>
 <div class="wrap">
 
+  <!-- ━━━ Header ━━━ -->
   <header>
     <div class="eyebrow">NMIMS · Advanced ML · Experiment 6</div>
-    <h1>Encoder-Decoder NLP Suite</h1>
-    <p>Machine Translation (En→Hi, En→Es) and Text Summarization — LSTM Seq2Seq + HuggingFace Transformers.</p>
+    <h1>Encoder-Decoder<br>NLP Suite</h1>
+    <p>Machine Translation (En→Hi, En→Es) and Text Summarization — powered by LSTM Seq2Seq with Bahdanau Attention &amp; HuggingFace Transformers.</p>
     <div class="tags">
       <span class="tag t-b">PyTorch LSTM</span>
       <span class="tag t-p">MarianMT</span>
-      <span class="tag t-g">BART</span>
+      <span class="tag t-g">BART CNN</span>
       <span class="tag t-b">Flask API</span>
     </div>
   </header>
 
-  <div class="status"><div class="dot" id="dot"></div><span id="st">Checking API…</span></div>
-
-  <div class="tabs">
-    <button class="tab on"  onclick="tab(0)">🇮🇳 En → Hi</button>
-    <button class="tab"     onclick="tab(1)">🇪🇸 En → Es</button>
-    <button class="tab"     onclick="tab(2)">📄 Summarize</button>
-    <button class="tab"     onclick="tab(3)">⚙️ Architecture</button>
+  <!-- ━━━ Status Bar ━━━ -->
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span id="st">Checking API…</span>
+    <span class="status-detail" id="st-detail"></span>
   </div>
 
-  <!-- Panel 0 -->
+  <!-- ━━━ Tabs ━━━ -->
+  <div class="tabs" id="tabs-container">
+    <button class="tab on" onclick="switchTab(0)" id="tab-0">
+      <span class="tab-icon">🇮🇳</span>En → Hi
+    </button>
+    <button class="tab" onclick="switchTab(1)" id="tab-1">
+      <span class="tab-icon">🇪🇸</span>En → Es
+    </button>
+    <button class="tab" onclick="switchTab(2)" id="tab-2">
+      <span class="tab-icon">📄</span>Summarize
+    </button>
+    <button class="tab" onclick="switchTab(3)" id="tab-3">
+      <span class="tab-icon">⚙️</span>Architecture
+    </button>
+  </div>
+
+  <!-- ━━━ Panel 0: En → Hi ━━━ -->
   <div class="panel on" id="p0">
-    <div class="task-tag">Task 1 & 2</div>
+    <div class="task-tag blue">Task 1 &amp; 2</div>
     <h2>English → Hindi</h2>
-    <p>Custom LSTM Encoder-Decoder on the Kaggle En-Hi dataset. Train first: <code style="font-family:'JetBrains Mono',monospace;color:var(--accent)">python app.py --train-hi</code></p>
+    <p>Custom Bidirectional LSTM Encoder-Decoder with Bahdanau Attention, trained on the Kaggle En-Hi corpus.<br>
+       Train first: <code>python app.py --train-hi</code></p>
     <div class="card">
-      <label>English Input</label>
+      <label for="hi-in">English Input</label>
       <textarea id="hi-in" placeholder="e.g. The sun rises in the east."></textarea>
-      <button class="btn b-b" id="hi-btn" onclick="call('/api/translate/en-hi','hi')">
-        <div class="spin" id="hi-sp"></div>Translate
+      <button class="btn b-b" id="hi-btn" onclick="callTranslate('/api/translate/en-hi','hi')">
+        <div class="spin" id="hi-sp"></div>Translate to Hindi
       </button>
       <div class="err" id="hi-err"></div>
       <div class="res" id="hi-res">
-        <div class="res-label">Hindi Translation</div>
+        <div class="res-label blue">Hindi Translation</div>
         <div class="res-text" id="hi-out"></div>
+        <div class="meta" id="hi-meta"></div>
       </div>
     </div>
   </div>
 
-  <!-- Panel 1 -->
+  <!-- ━━━ Panel 1: En → Es ━━━ -->
   <div class="panel" id="p1">
-    <div class="task-tag">Task 3</div>
+    <div class="task-tag purple">Task 3</div>
     <h2>English → Spanish</h2>
-    <p>Helsinki-NLP/opus-mt-en-es (MarianMT) — fine-tunable on HuggingFace <code style="font-family:'JetBrains Mono',monospace;color:var(--p)">opus_books</code>.</p>
+    <p>Helsinki-NLP/opus-mt-en-es (MarianMT) — Transformer encoder-decoder fine-tunable on HuggingFace <code>opus_books</code>.</p>
     <div class="card">
-      <label>English Input</label>
+      <label for="es-in">English Input</label>
       <textarea id="es-in" placeholder="e.g. Knowledge is the key to freedom."></textarea>
-      <button class="btn b-p" id="es-btn" onclick="call('/api/translate/en-es','es')">
-        <div class="spin" id="es-sp"></div>Translate
+      <button class="btn b-p" id="es-btn" onclick="callTranslate('/api/translate/en-es','es')">
+        <div class="spin" id="es-sp"></div>Translate to Spanish
       </button>
       <div class="err" id="es-err"></div>
       <div class="res" id="es-res">
-        <div class="res-label">Spanish Translation</div>
+        <div class="res-label purple">Spanish Translation</div>
         <div class="res-text" id="es-out"></div>
+        <div class="meta" id="es-meta"></div>
       </div>
     </div>
   </div>
 
-  <!-- Panel 2 -->
+  <!-- ━━━ Panel 2: Summarization ━━━ -->
   <div class="panel" id="p2">
-    <div class="task-tag">Task 4</div>
+    <div class="task-tag green">Task 4</div>
     <h2>Text Summarization</h2>
-    <p>facebook/bart-large-cnn — abstractive summarization via BART encoder-decoder. Needs 30+ words.</p>
+    <p>facebook/bart-large-cnn — Abstractive summarization via the BART denoising encoder-decoder. Requires 30+ words.</p>
     <div class="card">
-      <label>Long Text</label>
-      <textarea id="su-in" style="min-height:140px" placeholder="Paste a paragraph or article…"></textarea>
+      <label for="su-in">Long Text</label>
+      <textarea id="su-in" style="min-height:150px" placeholder="Paste a paragraph or article here…"></textarea>
       <div class="row">
-        <div><label>Max length</label><input type="number" id="su-max" value="150" min="40" max="400"/></div>
-        <div><label>Min length</label><input type="number" id="su-min" value="40"  min="10" max="200"/></div>
+        <div>
+          <label for="su-max">Max Length</label>
+          <input type="number" id="su-max" value="150" min="40" max="400"/>
+        </div>
+        <div>
+          <label for="su-min">Min Length</label>
+          <input type="number" id="su-min" value="40" min="10" max="200"/>
+        </div>
       </div>
-      <button class="btn b-g" id="su-btn" onclick="summarize()">
-        <div class="spin" id="su-sp"></div>Summarize
+      <button class="btn b-g" id="su-btn" onclick="callSummarize()">
+        <div class="spin" id="su-sp"></div>Summarize Text
       </button>
       <div class="err" id="su-err"></div>
       <div class="res" id="su-res">
-        <div class="res-label">Summary</div>
-        <div class="res-text" id="su-out" style="font-size:14px;line-height:1.7"></div>
+        <div class="res-label green">Summary</div>
+        <div class="res-text" id="su-out" style="font-size:14px;line-height:1.8"></div>
         <div class="meta" id="su-meta"></div>
       </div>
     </div>
   </div>
 
-  <!-- Panel 3 -->
+  <!-- ━━━ Panel 3: Architecture ━━━ -->
   <div class="panel" id="p3">
-    <div class="task-tag">Theory</div>
+    <div class="task-tag amber">Theory</div>
     <h2>Encoder-Decoder Architecture</h2>
-    <p>Seq2Seq pipeline powering all four tasks — from raw tokens to translated/summarized output.</p>
+    <p>Seq2Seq pipeline powering all four tasks — from raw tokens to translated / summarized output.</p>
+
     <div class="card">
       <label style="margin-bottom:16px">Data Flow</label>
-      <div class="arch">
-        <div class="ab enc"><div class="ico">📝</div><div class="lbl">Input</div><div class="sub">Tokenised</div></div>
-        <div class="arr">→</div>
-        <div class="ab enc"><div class="ico">🔒</div><div class="lbl">Encoder</div><div class="sub">LSTM / TF</div></div>
-        <div class="arr">→</div>
-        <div class="ab ctx"><div class="ico">💾</div><div class="lbl">Context h</div><div class="sub">Hidden state</div></div>
-        <div class="arr">→</div>
-        <div class="ab dec"><div class="ico">🔓</div><div class="lbl">Decoder</div><div class="sub">LSTM / TF</div></div>
-        <div class="arr">→</div>
-        <div class="ab dec"><div class="ico">✅</div><div class="lbl">Output</div><div class="sub">Generated</div></div>
+      <div class="arch-flow">
+        <div class="arch-block enc">
+          <div class="icon">📝</div>
+          <div class="label">Input</div>
+          <div class="sub">Tokenised</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="arch-block enc">
+          <div class="icon">↔️</div>
+          <div class="label">Bi-Encoder</div>
+          <div class="sub">Bidir LSTM</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="arch-block ctx">
+          <div class="icon">✨</div>
+          <div class="label">Attention</div>
+          <div class="sub">Bahdanau</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="arch-block dec">
+          <div class="icon">🔓</div>
+          <div class="label">Decoder</div>
+          <div class="sub">LSTM + Ctx</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="arch-block dec">
+          <div class="icon">🎯</div>
+          <div class="label">Output</div>
+          <div class="sub">Greedy / Beam</div>
+        </div>
       </div>
     </div>
+
     <div class="card">
       <label>Models Per Task</label>
-      <div style="margin-top:12px;display:grid;gap:8px">
-        <div style="padding:12px;background:#080c14;border-radius:9px;border:1px solid var(--border)">
-          <span class="tag t-b" style="margin-right:8px">T1 & T2</span>
-          <strong style="font-size:13px">En→Hi · Custom LSTM Seq2Seq</strong>
-          <p style="font-size:12px;color:var(--muted);margin-top:4px">2-layer stacked LSTM encoder + decoder with mean-pooled context. Trained from scratch on Kaggle dataset, evaluated with BLEU.</p>
+      <div class="model-grid">
+        <div class="model-card">
+          <span class="tag t-b" style="margin-right:8px">T1 &amp; T2</span>
+          <strong>En→Hi · Bidirectional Attention Seq2Seq</strong>
+          <p>Bidirectional LSTM encoder + Bahdanau attention decoder. Vocabulary frequency pruning (min_freq=2) with short-sentence filtering for cleaner data. Cosine annealing LR schedule over 20 epochs.</p>
         </div>
-        <div style="padding:12px;background:#080c14;border-radius:9px;border:1px solid var(--border)">
+        <div class="model-card">
           <span class="tag t-p" style="margin-right:8px">T3</span>
-          <strong style="font-size:13px">En→Es · MarianMT (Helsinki-NLP)</strong>
-          <p style="font-size:12px;color:var(--muted);margin-top:4px">Transformer encoder-decoder. Fine-tuned on HuggingFace opus_books via Seq2SeqTrainer.</p>
+          <strong>En→Es · MarianMT (Helsinki-NLP)</strong>
+          <p>Transformer encoder-decoder pre-trained on the OPUS dataset. Fine-tunable via HuggingFace Seq2SeqTrainer on opus_books.</p>
         </div>
-        <div style="padding:12px;background:#080c14;border-radius:9px;border:1px solid var(--border)">
+        <div class="model-card">
           <span class="tag t-g" style="margin-right:8px">T4</span>
-          <strong style="font-size:13px">Summarization · BART-large-CNN</strong>
-          <p style="font-size:12px;color:var(--muted);margin-top:4px">Denoising autoencoder with Transformer enc-dec. Evaluated by compression ratio.</p>
+          <strong>Summarization · BART-large-CNN</strong>
+          <p>Denoising autoencoder with Transformer encoder-decoder. Abstractive summarization evaluated by compression ratio. Supports configurable min/max output lengths.</p>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- ━━━ Footer ━━━ -->
+  <div class="footer">
+    Encoder-Decoder NLP Suite · Built with PyTorch, HuggingFace &amp; Flask
+  </div>
+
 </div>
 
 <script>
-  const BASE = "http://localhost:8080";
+  const BASE = window.location.origin.includes("file://")
+    ? "http://localhost:8080"
+    : window.location.origin;
 
-  function tab(i) {
-    document.querySelectorAll(".tab").forEach((t,j)=>t.classList.toggle("on",i===j));
-    document.querySelectorAll(".panel").forEach((p,j)=>p.classList.toggle("on",i===j));
+  // ── Tab switching ──
+  function switchTab(i) {
+    document.querySelectorAll(".tab").forEach((t, j) => t.classList.toggle("on", i === j));
+    document.querySelectorAll(".panel").forEach((p, j) => p.classList.toggle("on", i === j));
   }
 
+  // ── Health check ──
   async function ping() {
     try {
-      await fetch(`${BASE}/api/health`);
-      document.getElementById("dot").className="dot on";
-      document.getElementById("st").textContent="API online";
+      const r = await fetch(`${BASE}/api/health`);
+      const d = await r.json();
+      document.getElementById("dot").className = "dot on";
+      document.getElementById("st").textContent = "API online";
+      document.getElementById("st-detail").textContent =
+        `${d.device || "cpu"} · model: ${d.en_hi_model || "unknown"}`;
     } catch {
-      document.getElementById("dot").className="dot off";
-      document.getElementById("st").textContent="API offline — run: python app.py";
+      document.getElementById("dot").className = "dot off";
+      document.getElementById("st").textContent = "API offline — run: python app.py";
+      document.getElementById("st-detail").textContent = "";
     }
   }
   ping();
+  setInterval(ping, 15000);  // re-check every 15s
 
-  async function call(endpoint, pfx) {
+  // ── Translation call ──
+  async function callTranslate(endpoint, pfx) {
     const text = document.getElementById(`${pfx}-in`).value.trim();
-    const btn=document.getElementById(`${pfx}-btn`), sp=document.getElementById(`${pfx}-sp`);
-    const err=document.getElementById(`${pfx}-err`), res=document.getElementById(`${pfx}-res`);
-    if (!text) { show(err,"Enter some text first."); return; }
-    err.style.display="none"; btn.disabled=true; sp.style.display="block";
+    const btn  = document.getElementById(`${pfx}-btn`);
+    const sp   = document.getElementById(`${pfx}-sp`);
+    const err  = document.getElementById(`${pfx}-err`);
+    const res  = document.getElementById(`${pfx}-res`);
+    const meta = document.getElementById(`${pfx}-meta`);
+
+    if (!text) { showErr(err, "Enter some text first."); return; }
+    hideErr(err); btn.disabled = true; sp.style.display = "block";
+
     try {
-      const r = await fetch(BASE+endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
+      const r = await fetch(BASE + endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
       const d = await r.json();
-      if (d.error) { show(err,d.error); res.classList.remove("on"); return; }
+      if (d.error) { showErr(err, d.error); res.classList.remove("on"); return; }
+
       document.getElementById(`${pfx}-out`).textContent = d.translation;
+      if (meta) {
+        meta.innerHTML = d.time_s
+          ? `<span class="chip">⚡ ${d.time_s}s</span>
+             <span class="chip">📝 ${text.split(/\s+/).length} words</span>`
+          : "";
+      }
       res.classList.add("on");
-    } catch { show(err,"Cannot reach API. Is Flask running?"); }
-    finally { btn.disabled=false; sp.style.display="none"; }
+    } catch {
+      showErr(err, "Cannot reach API. Is Flask running?");
+    } finally {
+      btn.disabled = false;
+      sp.style.display = "none";
+    }
   }
 
-  async function summarize() {
-    const text=document.getElementById("su-in").value.trim();
-    const max=document.getElementById("su-max").value, min=document.getElementById("su-min").value;
-    const btn=document.getElementById("su-btn"), sp=document.getElementById("su-sp");
-    const err=document.getElementById("su-err"), res=document.getElementById("su-res");
-    if (!text) { show(err,"Enter text to summarize."); return; }
-    err.style.display="none"; btn.disabled=true; sp.style.display="block";
+  // ── Summarize call ──
+  async function callSummarize() {
+    const text    = document.getElementById("su-in").value.trim();
+    const maxLen  = document.getElementById("su-max").value;
+    const minLen  = document.getElementById("su-min").value;
+    const btn     = document.getElementById("su-btn");
+    const sp      = document.getElementById("su-sp");
+    const err     = document.getElementById("su-err");
+    const res     = document.getElementById("su-res");
+
+    if (!text) { showErr(err, "Enter text to summarize."); return; }
+    hideErr(err); btn.disabled = true; sp.style.display = "block";
+
     try {
-      const r = await fetch(`${BASE}/api/summarize`,{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({text,max_length:max,min_length:min})});
+      const r = await fetch(`${BASE}/api/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, max_length: maxLen, min_length: minLen })
+      });
       const d = await r.json();
-      if (d.error) { show(err,d.error); res.classList.remove("on"); return; }
+      if (d.error) { showErr(err, d.error); res.classList.remove("on"); return; }
+
       document.getElementById("su-out").textContent = d.summary;
       document.getElementById("su-meta").innerHTML =
         `<span class="chip">📝 ${d.original_words}w → ${d.summary_words}w</span>
-         <span class="chip">📉 ${d.compression} compressed</span>`;
+         <span class="chip">📉 ${d.compression} compressed</span>
+         ${d.time_s ? `<span class="chip">⚡ ${d.time_s}s</span>` : ""}`;
       res.classList.add("on");
-    } catch { show(err,"Cannot reach API. Is Flask running?"); }
-    finally { btn.disabled=false; sp.style.display="none"; }
+    } catch {
+      showErr(err, "Cannot reach API. Is Flask running?");
+    } finally {
+      btn.disabled = false;
+      sp.style.display = "none";
+    }
   }
 
-  function show(el, msg) { el.textContent=msg; el.style.display="block"; }
+  // ── Helpers ──
+  function showErr(el, msg) { el.textContent = msg; el.style.display = "block"; }
+  function hideErr(el) { el.style.display = "none"; }
+
+  // ── Keyboard shortcut: Ctrl+Enter to submit ──
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      const activePanel = document.querySelector(".panel.on");
+      if (!activePanel) return;
+      const btn = activePanel.querySelector(".btn");
+      if (btn && !btn.disabled) btn.click();
+    }
+  });
 </script>
 </body>
 </html>
